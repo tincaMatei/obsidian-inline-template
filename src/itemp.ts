@@ -28,7 +28,7 @@ export class ITemp {
         let class_name = match.substring(6, i);
         let body = match.substring(i + 1, match.length - 6);
 
-        return `<span class=${class_name}>${body}</span>`;
+        return `<span class=${this.plugin.settings.css_prefix}${class_name}>${body}</span>`;
     }
 
     parse_match_constant_case(match: string): string {

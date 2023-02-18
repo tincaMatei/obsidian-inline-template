@@ -4,11 +4,15 @@ import { ITemp } from './itemp';
 // Remember to rename these classes and interfaces!
 
 interface ITempSetting {
+	javascript_on: boolean;
 	script_file_name: string;
+	css_prefix: string;
 }
 
 const DEFAULT_SETTINGS: ITempSetting = {
-	script_file_name: 'default'
+	javascript_on: false,
+	script_file_name: 'default',
+	css_prefix: '',
 }
 
 export default class ITempPlugin extends Plugin {
@@ -31,16 +35,18 @@ export default class ITempPlugin extends Plugin {
 
 	async loadScripts() {
 		let file_name: string = this.settings.script_file_name;
+		this.exported_functions = {};
+
+		if (!this.settings.javascript_on) {
+			return;
+		}
 
 		try {
 			let path = this.app.vault.adapter.getResourcePath(file_name);
-			this.exported_functions = {};
 
 			await import(path)
 				.then(obj => { 
 					this.exported_functions = obj;
-					this.exported_functions["milsugi_si_milbelesti"]();
-					console.log(typeof this.exported_functions["milsugi_si_milbelesc"]);
 				} )
 				.catch(err => { console.error("Failed to load object: ", err)} );
 		}
@@ -75,19 +81,42 @@ class ITempSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', {text: 'Inline Templates Settings'});
-
+		
 		new Setting(containerEl)
-			.setName('Script file')
-			.setDesc('File where you can put all the useful scripts that you need.')
-			.addText(text => {
-				text
-					.setPlaceholder('Folder name')
-					.setValue(this.plugin.settings.script_file_name)
+			.setName('Use JS snippet templates')
+			.setDesc('Warning! Turning this on means that you can run external JS code, which is unsafe.')
+			.addToggle(cb => {
+				cb.setValue(this.plugin.settings.javascript_on)
 					.onChange(async (value) => {
-						console.log('Secret: ' + value);
-						this.plugin.settings.script_file_name = value;
+						this.plugin.settings.javascript_on = value;
 						await this.plugin.saveSettings();
 					})
 			});
+
+		new Setting(containerEl)
+			.setName('Script file')
+			.setDesc('The .js file that contains all the used snippets.')
+			.addText(text => {
+				text
+					.setPlaceholder('File name here...')
+					.setValue(this.plugin.settings.script_file_name)
+					.onChange(async (value) => {
+						this.plugin.settings.script_file_name = value;
+						await this.plugin.loadScripts();
+						await this.plugin.saveSettings();
+					})
+			});
+		
+			new Setting(containerEl)
+				.setName('CSS class prefix')
+				.setDesc('When applying a class to some text, always attach the prefix to the class name to avoid name collisions.')
+				.addText(text => {
+					text.setPlaceholder('CSS prefix here...')
+						.setValue(this.plugin.settings.css_prefix)
+						.onChange(async (value) => {
+							this.plugin.settings.css_prefix = value;
+							await this.plugin.saveSettings();
+						})
+				})
 	}
 }
