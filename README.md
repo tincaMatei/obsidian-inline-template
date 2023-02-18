@@ -15,9 +15,9 @@ This plugin adds three ways to modify text.
 
 | Inline Template | Replaced with |
 | --- | --- |
-| <$RED Simple colored template $> | <span style="color:red">Simple colored template</span> |
-| <$.class Custom class template $> | <span class="class">Custom class template</span> |
-| <$func Function template $> | func("Function template") |
+| <$RED Simple colored template $> | `<span style="color:red">Simple colored template</span>` |
+| <$.class Custom class template $> | `<span class="class">Custom class template</span>` |
+| <$func Function template $> | `func("Function template")` |
 
 The first option is good if you just want to color some text.
 
