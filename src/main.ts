@@ -27,6 +27,14 @@ export default class ITempPlugin extends Plugin {
 		this.itemp_parser.setup();
 
 		this.addSettingTab(new ITempSettingTab(this.app, this));
+
+		this.addCommand({
+			id: 'inline-template-reload-scripts',
+			name: 'Reload scripts',
+			callback: () => {
+				this.loadScripts();
+			}
+		});
 	}
 
 	onunload() {
