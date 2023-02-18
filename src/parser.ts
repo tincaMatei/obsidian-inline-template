@@ -1,9 +1,9 @@
 import ITempPlugin from "./main";
 
-const open_brace_regex = RegExp("&lt;\\\|[^!]");
-const close_brace_regex = RegExp("[^!]\\\|&gt;");
-const esc_open_brace_regex = RegExp("&lt;\\\|!");
-const esc_close_brace_regex = RegExp("!\\\|&gt;");
+const open_brace_regex = RegExp("&lt;\\\.[^!]");
+const close_brace_regex = RegExp("[^!]\\\.&gt;");
+const esc_open_brace_regex = RegExp("&lt;\\\.!");
+const esc_close_brace_regex = RegExp("!\\\.&gt;");
 
 class ITempMatch {
     public match_open_index: number;
@@ -60,6 +60,7 @@ export class ITempParser {
         return ('a' <= chr && chr <= 'z') ||
             ('A' <= chr && chr <= 'Z') ||
             ('0' <= chr && chr <= '9') ||
+            chr == '.' ||
             chr == '_' ||
             chr == '-' ||
             chr == '#';
@@ -71,7 +72,7 @@ export class ITempParser {
         
         if (header.charAt(0) == ".") {
             header = header.substring(1);
-            return `<span class="${header}">${content}</span>`;
+            return `<span class="${this.plugin.settings.css_prefix}${header}">${content}</span>`;
         } else if (('A' <= header.charAt(0) && header.charAt(0) <= 'Z') || header.charAt(0) == '#') {
             return `<span style="color: ${header}">${content}</span>`;
         } else if ('a' <= header.charAt(0) && header.charAt(0) <= 'z') {
