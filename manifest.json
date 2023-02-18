@@ -1,11 +1,10 @@
 {
-	"id": "obsidian-sample-plugin",
-	"name": "Sample Plugin",
+	"id": "obsidian-inline-templates",
+	"name": "Inline Templates",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "This is a sample plugin for Obsidian. This plugin demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "This plugin allows pages to have simple templates that are processed in Reading Mode.",
+	"author": "Matei Tinca",
+	"authorUrl": "https://github.com/tincaMatei",
 	"isDesktopOnly": false
 }
