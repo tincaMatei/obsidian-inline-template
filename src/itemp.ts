@@ -1,5 +1,5 @@
 import ITempPlugin from "./main";
-import { ITempParser } from "./parser";
+import { ITempParser, ITempTemplate } from "./parser";
 
 export class ITemp {
     constructor(private plugin: ITempPlugin) {}
@@ -11,10 +11,21 @@ export class ITemp {
     }
 
     replace_templates(content: string): string {
-        let parser = new ITempParser(content, this.plugin);
+        let parser = new ITempParser(content,
+            0,
+            true);
 
-        console.log(content);
+        let tree = parser.parse_line();
 
-        return parser.process_content();
+        let result = "";
+
+        for (let i = 0; i < tree.length; i++) {
+            if (typeof tree[i] == "string")
+                result = result + tree[i];
+            else
+                result = result + (tree[i] as ITempTemplate).expand(true, this.plugin);
+        }
+
+        return result;
     }
 }

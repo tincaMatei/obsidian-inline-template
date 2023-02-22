@@ -1,5 +1,6 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ITemp } from './itemp';
+import { ITempSyntaxHighlighter } from './syntax';
 
 // Remember to rename these classes and interfaces!
 
@@ -19,6 +20,7 @@ export default class ITempPlugin extends Plugin {
 	settings: ITempSetting;
 	exported_functions: any;
 	itemp_parser: ITemp;
+	itemp_syntax: ITempSyntaxHighlighter;
 
 	async onload() {
 		await this.loadSettings();
@@ -35,6 +37,8 @@ export default class ITempPlugin extends Plugin {
 				this.loadScripts();
 			}
 		});
+
+		this.itemp_syntax = new ITempSyntaxHighlighter(this);
 	}
 
 	onunload() {

@@ -1,17 +1,15 @@
 import ITempPlugin from "./main";
-
-const open_brace_regex = RegExp("&lt;\\\.[^!]");
-const close_brace_regex = RegExp("[^!]\\\.&gt;");
-const esc_open_brace_regex = RegExp("&lt;\\\.!");
-const esc_close_brace_regex = RegExp("!\\\.&gt;");
+import { SelectionRange } from "@codemirror/state"
 
 class ITempMatch {
     public match_open_index: number;
     public match_close_index: number;
 
-    constructor(str: string, cursor: number) {
-        let match_open = open_brace_regex.exec(str.substring(cursor));
-        let match_close = close_brace_regex.exec(str.substring(cursor));
+    constructor(str: string, cursor: number,
+                private open_brace_regex: RegExp,
+                private close_brace_regex: RegExp) {
+        let match_open = this.open_brace_regex.exec(str.substring(cursor));
+        let match_close = this.close_brace_regex.exec(str.substring(cursor));
     
         this.match_open_index = this.match_close_index = -1;
 
@@ -48,10 +46,136 @@ class ITempMatch {
     }
 }
 
+export class ITempTemplate {
+    constructor(public from: number,
+                public to: number,
+                public header: string,
+                public body: Array<ITempTemplate | string>) {
+
+    }
+
+    // TODO! Maybe separate the exported functions/css prefix into another class
+    // to not pass the entire plugin
+    private process_template(header: string, 
+                             content: string, 
+                             plugin: ITempPlugin): string {
+        if (header.length == 0)
+            return content;
+        
+        if (header.charAt(0) == ".") {
+            header = header.substring(1);
+            return `<span class="${plugin.settings.css_prefix}${header}">${content}</span>`;
+        } else if (('A' <= header.charAt(0) && header.charAt(0) <= 'Z') || header.charAt(0) == '#') {
+            return `<span style="color: ${header}">${content}</span>`;
+        } else if ('a' <= header.charAt(0) && header.charAt(0) <= 'z') {
+            let transf = plugin.exported_functions[header];
+
+            if (typeof transf == "function")
+                return transf(content);
+        }
+
+        return content;
+    }
+
+    private process_template_preview(header: string,
+                                     content: string,
+                                     plugin: ITempPlugin) {
+        if (header.length == 0)
+            return content;
+    
+        if (header.charAt(0) == ".") {
+            header = header.substring(1);
+            return `<span class="${plugin.settings.css_prefix}${header}">${content}</span>`;
+        } else if (('A' <= header.charAt(0) && header.charAt(0) <= 'Z') || header.charAt(0) == '#') {
+            return `<span style="color: ${header}">${content}</span>`;
+        } else {
+            return `<span style="color: #a1d1ce">${content}</span>`;
+        }
+    }
+
+    escape_text(str: string, should_escape: boolean): string {
+        if (should_escape)
+            return str.replace(/</g, "&gt;")
+                .replace(/>/g, "&lt;");
+        return str;
+    }
+
+    expand(escape_text: boolean, plugin: ITempPlugin) {
+        let result = "";
+
+        for (let i = 0; i < this.body.length; i++) {
+            const son = this.body[i];
+
+            if (typeof son == "string")
+                result = result + son;
+            else
+                result = result + son.expand(escape_text, plugin);
+        }
+        
+        return this.process_template(this.header, result, plugin);
+    }
+
+
+    expand_preview(escape_text: boolean, cursor: number, plugin: ITempPlugin) {
+        let result = "";
+
+        for (let i = 0; i < this.body.length; i++) {
+            const son = this.body[i];
+
+            if (typeof son == "string")
+                result = result + son;
+            else
+                result = result + son.expand_preview(escape_text, cursor, plugin);
+        }
+
+        return this.process_template_preview(this.header, result, plugin);
+    }
+
+    collect_templates(result: Array<ITempTemplate>, cursor: readonly SelectionRange[]) {
+        let intersects = false;
+
+        for (let i = 0; i < cursor.length; i++)
+            if (!(cursor[i].to <= this.from || this.to <= cursor[i].from))
+                intersects = true;
+
+        if (intersects) {
+            for (let i = 0; i < this.body.length; i++) {
+                if (typeof this.body[i] != "string") {
+                    const son = this.body[i] as ITempTemplate;
+                    son.collect_templates(result, cursor);
+                }
+            }
+        } else {
+            result.push(this);
+        }
+    }
+}
+
 export class ITempParser {
     private cursor: number;
+    private open_brace_regex: RegExp;
+    private close_brace_regex: RegExp;
+    private esc_open_brace_regex: RegExp;
+    private esc_close_brace_regex: RegExp;
+    private template_size: number;
 
-    constructor(private str: string, private plugin: ITempPlugin) {
+    constructor(private str: string, 
+                private external_offset: number, 
+                htmlmode: boolean = true,) {
+        if (htmlmode) {
+            this.open_brace_regex = RegExp("&lt;\\\.[^!]");
+            this.close_brace_regex = RegExp("[^!]\\\.&gt;");
+            this.esc_open_brace_regex = RegExp("&lt;\\\.!");
+            this.esc_close_brace_regex = RegExp("!\\\.&gt;");
+            this.template_size = 5;
+        } else {
+            this.open_brace_regex = RegExp("<\\\.[^!]");
+            this.close_brace_regex = RegExp("[^!]\\\.>");
+            this.esc_open_brace_regex = RegExp("<\\\.!");
+            this.esc_close_brace_regex = RegExp("!\\\.>"); 
+            this.template_size = 2;
+        }
+
         this.cursor = 0;
     }
 
@@ -66,82 +190,69 @@ export class ITempParser {
             chr == '#';
     }
 
-    process_template(header: string, content: string): string {
-        if (header.length == 0)
-            return content;
-        
-        if (header.charAt(0) == ".") {
-            header = header.substring(1);
-            return `<span class="${this.plugin.settings.css_prefix}${header}">${content}</span>`;
-        } else if (('A' <= header.charAt(0) && header.charAt(0) <= 'Z') || header.charAt(0) == '#') {
-            return `<span style="color: ${header}">${content}</span>`;
-        } else if ('a' <= header.charAt(0) && header.charAt(0) <= 'z') {
-            let transf = this.plugin.exported_functions[header];
+    parse_template(): ITempTemplate {
+        const start_template = this.cursor;
+        let sons = new Array<ITempTemplate | string>();
 
-            if (typeof transf == "function")
-                return transf(content);
-        }
-
-        return content;
-    }
-
-    parse_template(depth=0): string {
-        let result = "";
-        
-        this.cursor += 5;
+        this.cursor += this.template_size;
         let start_header_pos = this.cursor;
 
         while (this.is_cursor_valid()) {
             this.cursor++;
         }
-
+        
         let header = this.str.substring(start_header_pos, this.cursor);
         this.cursor++;
-        
-        let match: ITempMatch = new ITempMatch(this.str, this.cursor);
+
+        let match: ITempMatch = new ITempMatch(this.str, this.cursor, this.open_brace_regex, this.close_brace_regex);
 
         while (!match.is_invalid() && !match.is_closed_template()) {
             if (match.is_nested_template()) {
                 let pos = match.match_open_index;
-                result = result + this.str.substring(this.cursor, pos);
+                sons.push(this.str.substring(this.cursor, pos));
                 this.cursor = pos;
-                result = result + this.parse_template(depth + 1);
+                sons.push(this.parse_template());
             }
 
-            match = new ITempMatch(this.str, this.cursor);
+            match = new ITempMatch(this.str, this.cursor, this.open_brace_regex, this.close_brace_regex);
         }
 
         if (match.is_invalid()) {
-            this.cursor = this.str.length;
-            return "";
+            // We have an open brace without a closing one
+            sons.push(this.str.substring(this.cursor));
+            this.cursor = this.str.length + 1;
         } else {
             let pos = match.match_close_index;
-            result = result + this.str.substring(this.cursor, pos);
-            this.cursor = pos + 6;
+            sons.push(this.str.substring(this.cursor, pos));
+            this.cursor = pos + this.template_size + 1;
         }
-
-        console.log("=".repeat(depth * 2) + `${header} : ${result}`);
-
-        return this.process_template(header, result);
+    
+        return new ITempTemplate(start_template + this.external_offset,
+            this.cursor + this.external_offset, 
+            header,
+            sons);
     }
 
-    replace_templates(): string {
-        let result = "";
+    parse_line(): Array<ITempTemplate | string> {
+        let parts = new Array<ITempTemplate | string>();
         let match;
 
-        while ((match = open_brace_regex.exec(this.str.substring(this.cursor))) !== null) {
+        while ((match = this.open_brace_regex.exec(this.str.substring(this.cursor))) !== null) {
             let start_pos = match.index + this.cursor;
-            result = result + this.str.substring(this.cursor, start_pos);
+            parts.push(this.str.substring(this.cursor, start_pos));
             this.cursor = start_pos;
-            result = result + this.parse_template();
+            parts.push(this.parse_template());
         }
 
-        return result + this.str.substring(this.cursor);
+        if (this.cursor < this.str.length)
+            parts.push(this.str.substr(this.cursor));
+
+        return parts;
     }
     
     get_nearest_match(content: string): number {
-        let match_open = esc_open_brace_regex.exec(content);
-        let match_close = esc_close_brace_regex.exec(content);
+        let match_open = this.esc_open_brace_regex.exec(content);
+        let match_close = this.esc_close_brace_regex.exec(content);
 
         if (match_open === null && match_close === null)
             return -1;
@@ -152,33 +263,5 @@ export class ITempParser {
         else if (match_close !== null && match_open !== null)
             return Math.min(match_open.index, match_close.index);
         return -1;
-    }
-
-    escape_content(content: string): string {
-        let result = "";
-        let index;
-
-        index = this.get_nearest_match(content);
-        while (index != -1) {
-            result = result + content.substring(0, index);
-            content = content.substring(index);
-
-            if (content.charAt(0) == "!") {
-                result = result + content.substring(1, 6);
-                content = content.substring(6);
-            } else {
-                result = result + content.substring(0, 5);
-                content = content.substring(6);
-            }
-
-            index = this.get_nearest_match(content);
-        }
-
-        return result + content;
-    }
-
-    process_content(): string {
-        let result = this.replace_templates();
-        return this.escape_content(result);
     }
 }
