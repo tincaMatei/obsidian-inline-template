@@ -10,6 +10,8 @@ With this plugin, now you can.
 
 You can use inline templates that will be rendered in Reading Mode.
 
+![Plugin showcase](https://user-images.githubusercontent.com/14098249/221063351-3cdb9029-31da-49b5-83d5-bb91ab7a0f7f.gif)
+
 ## Features
 
 This plugin adds three ways to modify text.
@@ -31,6 +33,9 @@ the vault. This works great if you want to generate some even cooler text.
 The templates can also be nested. That is, you can have a template inside another template.
 
 Syntax highlighting is also somewhat supported in Live Preview mode.
+
+Note that the template must have a space between the text to be formatted and the closing 
+template tag.
 
 ## JavaScript
 
